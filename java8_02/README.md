@@ -123,7 +123,7 @@ Runnable r = () -> System.out.println(portNumber);
 
 你可能会问自己，为什么局部变量有这些限制?????
 
-第一,示例变量和局部变量背后的实现有一个关键的不同,**实例变量存储在堆中,局部变量存储在栈中**,
+第一,实例变量和局部变量背后的实现有一个关键的不同,**实例变量存储在堆中,局部变量存储在栈中**,
 如果Lambda可以直接访问局
 部变量，而且Lambda是在一个线程中使用的，则使用Lambda的线程，可能会在分配该变量的线
 程将这个变量收回之后，去访问该变量。因此，Java在访问自由局部变量时，实际上是在访问它
@@ -143,10 +143,139 @@ Runnable r = () -> System.out.println(portNumber);
 **实例变量是可以的,因为它们保存在堆中,而堆是在线程中共享的.**
 
 
+## 管中窥豹之 方法引用
 
+方法引用可以被看作是调用Lambda表达式的一种快捷方法.
+> 它的基本思想是:
 
+**如果一个Lambda表达式代表是 直接调用这个方法,那最好还是用名称来调用它.**
+事实上,方法引用就是让你根据已有的方法来创建Lambda表达式.
 
+> 它是如何工作的呢?
 
+**当你需要使用方法引用时,目标引用放在分隔符 :: 前,方法名放在后面.**
+
+例如，
+Apple::getWeight 就是引用了 Apple 类中定义的方法 getWeight 。请记住，不需要括号，因为
+你没有实际调用这个方法。方法引用就是Lambda表达式 (Apple a) -> a.getWeight() 的快捷
+写法。
+
+```java
+/**
+     * 方法引用
+     */
+    @Test
+    public void test5(){
+
+        List<Apple> inventory1 = initInventory();
+        inventory1.sort((Apple a1, Apple a2)-> a1.getWeight().compareTo(a2.getWeight()));
+        System.out.println(inventory1);
+
+        List<Apple> inventory = initInventory();
+        inventory.sort(Comparator.comparing(Apple::getWeight));
+        System.out.println(inventory);
+
+    }
+```
+
+现在让我们用一个上节中对苹果排序的例子贯穿一下我们目前接触到的所有知识
+
+## Lambda 和方法引用实战
+
+我们想要实现的最终解决方案是这样的:
+```java
+inventory.sort(comparing(Apple::getWeight));
+```
+
+### 第 1 步:传递代码: 
+Java 8的API已经为你提供了一个 List 可用的 sort 方法，你不用自己去实现它。
+那么最困难的部分已经搞定了！但是，如何把排序策略传递给 sort 方法呢？你看， sort 方法的
+签名是这样的：
+```java
+void sort(Comparator<? super E> c)
+```
+
+它需要一个Comparator对象来比较两个Apple,这就是zaijava中传递策略的方式:他们必须包裹在一个对象里,
+我们说 sort 的行为被参数化了：传递给它的排序策略不同，其行为也会不同.
+
+你的第一个解决方案看上去是这样的:
+```java
+public class AppleComparator implements Comparator<Apple> {
+    public int compare(Apple a1, Apple a2){
+     return a1.getWeight().compareTo(a2.getWeight());
+    }
+}
+    inventory.sort(new AppleComparator())
+```
+
+### 第 2 步：使用匿名类
+
+你可以使用匿名类来改进解决方案，而不是实现一个 Comparator 却只实
+例化一次：
+```java
+inventory.sort(new Comparator<Apple>() {
+    public int compare(Apple a1, Apple a2){
+        return a1.getWeight().compareTo(a2.getWeight());
+        }
+    });
+```
+
+### 第 3 步：使用 Lambda 表达式
+
+但你的解决方案仍然挺啰嗦的。Java 8引入了Lambda表达式，它提供了一种轻量级语法来实
+现相同的目标：传递代码
+
+```java
+inventory.sort((Apple a1, Apple a2)-> a1.getWeight().compareTo(a2.getWeight()));
+```
+
+我们前面解释过了，Java编译器可以根据Lambda出现的上下文来推断Lambda表达式参数的
+类型。那么你的解决方案就可以重写成这样：
+
+```java
+inventory.sort((a1, a2) -> a1.getWeight().compareTo(a2.getWeight()));
+```
+
+> 你的代码还能变得更易读一点吗???
+
+Comparator 具有一个叫做Comparing的静态辅助方法,方法描述如下:
+```java
+ public static <T, U extends Comparable<? super U>> Comparator<T> comparing(
+            Function<? super T, ? extends U> keyExtractor)
+    {
+        Objects.requireNonNull(keyExtractor);
+        return (Comparator<T> & Serializable)
+            (c1, c2) -> keyExtractor.apply(c1).compareTo(keyExtractor.apply(c2));
+    }
+```
+
+**可以看到,它可以接受一个Function来提取一个键值,并生成一个Compartor对象.**
+
+它可以像下面这样用（注意你现在传递的Lambda只有一
+个参数：Lambda说明了如何从苹果中提取需要比较的键值）：
+```java
+Comparator<Apple> c = Comparator.comparing((Apple a) -> a.getWeight());
+```
+
+因此,现在你可以该代码改为这样:
+```java
+import static java.util.Comparator.comparing;
+
+inventory.sort(comparing((a) -> a.getWeight()));
+```
+
+### 第 4 步：使用方法引用
+
+> **方法引用就是替代那些转发参数的Lambda表达式的语法糖.**
+你可以使用方法引用让你的代码更简洁,假设你静态导入了 java.util.Comparator.comparing.
+那么你现在的代码可以这样:
+
+```java
+inventory.sort(comparing(Apple::getWeight));
+``` 
+
+恭喜你，这就是你的最终解决方案！这比Java 8之前的代码好在哪儿呢？它比较短；它的意
+思也很明显，并且代码读起来和问题描述差不多：“对库存进行排序，比较苹果的重量。”
 
 
 
