@@ -6,10 +6,12 @@ import pojo.Dish;
 
 import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
 
@@ -92,6 +94,58 @@ public class Test1 {
         System.out.println(lowCaloricDishesName);
     }
 
+
+    @Test
+    public void test4() {
+        List<String> lowCaloricDishesName =
+                //1.从 menu 获得流（菜肴列表）,建立操作流水线
+                menu.parallelStream()
+                        //2.选出高热量菜肴
+                        .filter(d -> d.getCalories() > 300)
+                        //3.输出菜肴名称
+                        .map(Dish::getName)
+                        //4.只选择前三个
+                        .limit(3)
+                        //5.将结果保存在另一个List中
+                        .collect(toList());
+
+        System.out.println(lowCaloricDishesName);
+    }
+
+    @Test
+    public void test5() {
+
+        List<String> title = Arrays.asList("Java8", "In", "Action");
+        Stream<String> stream = title.stream();
+        stream.forEach(System.out::println);
+        stream.forEach(System.out::println);
+    }
+
+
+    @Test
+    public void test6() {
+
+        List<String> names =
+                //1.从 menu 获得流（菜肴列表）,建立操作流水线
+                menu.stream()
+                        //2.选出高热量菜肴
+                        .filter(d -> {
+                            System.out.println("filtering" + d.getName());
+                            return d.getCalories() > 300;
+                        })
+                        //3.输出菜肴名称
+                        .map(d -> {
+                            System.out.println("mapping" + d.getName());
+                            return d.getName();
+                        })
+                        //4.只选择前三个
+                        .limit(3)
+                        //5.将结果保存在另一个List中
+                        .collect(toList());
+
+        System.out.println(names);
+
+    }
 
 
 }
